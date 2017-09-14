@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -e
+
+DOCKER_CONTAINER=clever_carson
+REMOTE=edquist
+GH_USER=edquist
+GH_UPSTREAM=opensciencegrid
+
+usage () {
+  echo "usage: PASS=\$GITHUB_PASSWORD \\"
+  echo "  $(basename "$0") [-np] TWIKI-URL pathto/new-doc.md"
+  echo
+  echo "example TWIKI-URL:"
+  echo " https://twiki.opensciencegrid.org/bin/view/SoftwareTeam/Java6Migration"
+  echo
+  echo "example md-doc-path:"
+  echo " release/release-policy.md"
+  echo
+  echo "specify -np for no-push, to skip pushing to github and generating a PR"
+  echo
+  [[ $PASS || $NP ]] || echo "please export PASS"
+  exit
+}
+
+{
+case $1 in
+  -np) shift; NP=Y;;
+esac
+
+[[ $2 ]] || usage
+[[ $PASS ]] || usage
+
+url=$1
+docname=${url##*/}
+mddocpath=$2
+
+branch=migrate."$docname"
+
+git checkout master
+git checkout -b "$branch"
+
+docker exec "$DOCKER_CONTAINER" convert-twiki "$url"
+mv "$docname".md docs/"$mddocpath"
+git add archive/"$docname" docs/"$mddocpath"
+git commit -m "migrate $docname -> $mddocpath
+
+$url"
+
+if [[ $NP ]]; then
+  exit
+fi
+
+git push --set-upstream "$REMOTE" "$branch"
+
+title="migrate $docname -> $mddocpath"
+body="$url
+
+- [ ] Enter date into \"Migrated\" column of google sheet
+- [ ] Add migration header to TWiki document"
+
+PR_URL=$(
+  git-hubber -u "$GH_USER" request-pull \
+                "$GH_UPSTREAM" technology "$branch" "$title" "$body"
+)
+} >&2
+
+echo "$docname $PR_URL"
+
