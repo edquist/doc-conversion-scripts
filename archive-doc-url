@@ -1,0 +1,54 @@
+#!/bin/bash
+
+set -e
+
+#https://twiki.opensciencegrid.org/bin/view/SoftwareTeam/Java6Migration
+
+#DOCKER_CONTAINER=clever_carson
+DOCKER_CONTAINER=hungry_newton
+REMOTE=edquist
+GH_USER=edquist
+GH_UPSTREAM=opensciencegrid
+GH_REPO=docs
+
+usage () {
+  echo "usage: PASS=\$GITHUB_PASSWORD $(basename "$0") TWIKI-URL"
+  [[ $PASS ]] || echo "please export PASS"
+  exit
+}
+
+{
+[[ $1 ]] || usage
+[[ $PASS ]] || usage
+
+url=$1
+docname=${url##*/}
+
+branch=archive."$docname"
+
+git checkout master
+git checkout -b "$branch"
+
+docker exec "$DOCKER_CONTAINER" convert-twiki "$url"
+rm -f "$docname".md
+git add archive/"$docname"
+git commit -m "archive $docname
+
+$url"
+
+git push --set-upstream "$REMOTE" "$branch"
+
+title="archive $docname"
+body="$url
+
+- [ ] Enter date into \"Migrated\" column of google sheet
+- [ ] Move TWiki document to the trash"
+
+PR_URL=$(
+  git-hubber -u "$GH_USER" request-pull \
+                "$GH_UPSTREAM" "$GH_REPO" "$branch" "$title" "$body"
+)
+} >&2
+
+echo "$docname $PR_URL"
+

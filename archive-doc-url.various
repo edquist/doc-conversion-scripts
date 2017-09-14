@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -e
+
+#DOCKER_CONTAINER=clever_carson
+DOCKER_CONTAINER=hungry_newton
+REMOTE=edquist
+GH_USER=edquist
+GH_UPSTREAM=opensciencegrid
+GH_REPO=docs
+TW_BASEURL=https://twiki.opensciencegrid.org/bin/view/Documentation/Release3
+
+usage () {
+  echo "usage: PASS=\$GITHUB_PASSWORD \\"
+  echo "       $(basename "$0") ARCHIVE-BRANCH DOCNAMES..."
+  [[ $PASS ]] || echo "please export PASS"
+  exit
+}
+
+{
+[[ $3 ]] || usage
+[[ $PASS ]] || usage
+
+archive_branch=$1
+shift
+
+branch=archive."$archive_branch".various
+
+git checkout master
+git checkout -b "$branch"
+
+pr_body=""
+
+for docname in "$@"; do
+
+url=$TW_BASEURL/$docname
+docker exec "$DOCKER_CONTAINER" convert-twiki "$url"
+rm -f "$docname".md
+git add archive/"$docname"
+git commit -m "archive $docname
+
+$url"
+
+pr_body+="$url
+
+- [ ] Enter date into \"Migrated\" column of google sheet
+- [ ] Move TWiki document to the trash
+
+---
+
+"
+done
+
+git push --set-upstream "$REMOTE" "$branch"
+
+title="archive $archive_branch (various)"
+
+PR_URL=$(
+  git-hubber -u "$GH_USER" request-pull \
+                "$GH_UPSTREAM" "$GH_REPO" "$branch" "$title" "$pr_body"
+)
+} >&2
+
+echo "$branch $PR_URL"
+
