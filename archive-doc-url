@@ -4,8 +4,6 @@ set -e
 
 #https://twiki.opensciencegrid.org/bin/view/SoftwareTeam/Java6Migration
 
-#DOCKER_CONTAINER=clever_carson
-DOCKER_CONTAINER=hungry_newton
 REMOTE=edquist
 GH_USER=edquist
 GH_UPSTREAM=opensciencegrid
@@ -29,8 +27,9 @@ branch=archive."$docname"
 git checkout master
 git checkout -b "$branch"
 
-docker exec "$DOCKER_CONTAINER" convert-twiki "$url"
-rm -f "$docname".md
+curl  "$url?raw=text" > archive/"$docname".raw
+iconv -f windows-1252 < archive/"$docname".raw > archive/"$docname"
+rm -f archive/"$docname".raw
 git add archive/"$docname"
 git commit -m "archive $docname
 
