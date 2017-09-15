@@ -29,7 +29,7 @@ case $1 in
 esac
 
 [[ $2 ]] || usage
-[[ $PASS ]] || usage
+[[ $PASS || $NP ]] || usage
 
 url=$1
 docname=${url##*/}
