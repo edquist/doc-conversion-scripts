@@ -50,6 +50,7 @@ docname=${url##*/}
 
 {
 docker exec "$DOCKER_CONTAINER" convert-twiki "$url"
+mkdir -p docs/"$(dirname "$mddocpath")"
 mv "$docname".md docs/"$mddocpath"
 git add archive/"$docname" docs/"$mddocpath"
 git commit -m "migrate $docname -> $mddocpath
