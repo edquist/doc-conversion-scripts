@@ -11,7 +11,7 @@ usage () {
   echo "usage: PASS=\$GITHUB_PASSWORD \\"
   echo "  $(basename "$0") [-np] MIGRATE-BRANCH URL2MDNAMES-FILE"
   echo
-  echo "echo URL2MDNAMES-FILE has lines of the form:"
+  echo "URL2MDNAMES-FILE has lines of the form:"
   echo "TWIKI-URL pathto/new-doc.md"
   echo
   echo "example TWIKI-URL:"
