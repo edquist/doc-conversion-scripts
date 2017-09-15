@@ -1,0 +1,89 @@
+#!/bin/bash
+
+set -e
+
+DOCKER_CONTAINER=nostalgic_pike
+REMOTE=edquist
+GH_USER=edquist
+GH_UPSTREAM=opensciencegrid
+
+usage () {
+  echo "usage: PASS=\$GITHUB_PASSWORD \\"
+  echo "  $(basename "$0") [-np] MIGRATE-BRANCH URL2MDNAMES-FILE"
+  echo
+  echo "echo URL2MDNAMES-FILE has lines of the form:"
+  echo "TWIKI-URL pathto/new-doc.md"
+  echo
+  echo "example TWIKI-URL:"
+  echo " https://twiki.opensciencegrid.org/bin/view/SoftwareTeam/Java6Migration"
+  echo
+  echo "example md-doc-path:"
+  echo " release/release-policy.md"
+  echo
+  echo "specify -np for no-push, to skip pushing to github and generating a PR"
+  echo
+  [[ $PASS || $NP ]] || echo "please export PASS"
+  exit
+}
+
+{
+case $1 in
+  -np) shift; NP=Y;;
+esac
+
+[[ $2 ]] || usage
+[[ $PASS || $NP ]] || usage
+
+migrate_branch=$1
+infile=$2
+
+branch=migrate."$migrate_branch".various
+
+git checkout master
+git checkout -b "$branch"
+
+pr_body=""
+
+while read url mddocpath; do
+
+docname=${url##*/}
+
+{
+docker exec "$DOCKER_CONTAINER" convert-twiki "$url"
+mv "$docname".md docs/"$mddocpath"
+git add archive/"$docname" docs/"$mddocpath"
+git commit -m "migrate $docname -> $mddocpath
+
+$url"
+} < /dev/null
+
+pr_body+="$url
+
+- [ ] Enter date into \"Migrated\" column of google sheet
+- [ ] Add migration header to TWiki document
+
+---
+
+"
+done < "$infile"
+
+if [[ $NP ]]; then
+  echo PR BODY TEXT:
+  echo ---
+  echo
+  echo "$pr_body"
+  exit
+fi
+
+git push --set-upstream "$REMOTE" "$branch"
+
+title="migrate $migrate_branch (various)"
+
+PR_URL=$(
+  git-hubber -u "$GH_USER" request-pull \
+                "$GH_UPSTREAM" technology "$branch" "$title" "$pr_body"
+)
+} >&2
+
+echo "$branch $PR_URL"
+
